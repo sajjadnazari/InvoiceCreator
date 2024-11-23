@@ -53,13 +53,13 @@ namespace InvoiceCreator
                 MessageBox.Show(ex.Message, "Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-        private async Task<IEnumerable<int>> ReadAmountsAsync(string transactionFilepath)
+        private async Task<List<Transaction>> ReadAmountsAsync(string transactionFilepath)
         {
             if (!string.IsNullOrWhiteSpace(transactionFilepath))
             {
                 using (var package = new ExcelPackage(new FileInfo(transactionFilepath)))
                 {
-                    List<int> records = new List<int>();
+                    List<Transaction> records = new List<Transaction>();
                     ExcelWorksheet worksheet = package.Workbook.Worksheets[0];
                     int rowCount = worksheet.Dimension.Rows;
                     List<Task> tasks = new List<Task>();
@@ -68,8 +68,9 @@ namespace InvoiceCreator
                         var currentRow = row;
                         tasks.Add(Task.Run(() =>
                         {
-                            var rec = int.Parse(worksheet.Cells[currentRow, 1].Text);
-                            lock (records) { records.Add(rec); }
+                            var price = int.Parse(worksheet.Cells[currentRow, 1].Text);
+                            var description = worksheet.Cells[currentRow, 2].Text;
+                            lock (records) { records.Add(new Transaction { Amount = price, Description = description }); }
                         }));
                     }
                     await Task.WhenAll(tasks);
@@ -77,7 +78,7 @@ namespace InvoiceCreator
                 }
             };
 
-            return new List<int>();
+            return new List<Transaction>();
         }
         private async Task<IEnumerable<Product>> ReadProductsAsync(string productFilePath)
         {
@@ -115,7 +116,7 @@ namespace InvoiceCreator
             };
             return new List<Product>();
         }
-        private void CreteInvoiceAsync(string outputPath, List<int> prices, List<Product> products, int invoiceNumberIndex, string dateStart)
+        private void CreteInvoiceAsync(string outputPath, List<Transaction> transactions, List<Product> products, int invoiceNumberIndex, string dateStart)
         {
             List<Invoice> invoices = new List<Invoice>();
             var masterProducts = products.Where(e => e.Price > 0).ToList();
@@ -124,7 +125,7 @@ namespace InvoiceCreator
             decimal averagePrice = masterProducts.Average(e => e.Price);
 
             int pageSize = 10;
-            var TotalPages = (int)Math.Ceiling(prices.Count / (double)pageSize);
+            var TotalPages = (int)Math.Ceiling(transactions.Count / (double)pageSize);
             var invoiceNumber = invoiceNumberIndex;
             progressBar1.Minimum = 0;
             progressBar1.Maximum = TotalPages;
@@ -132,12 +133,12 @@ namespace InvoiceCreator
 
             for (int partition = 0; partition < TotalPages; partition++)
             {
-                var filteredPrices = prices.Skip(partition * pageSize).Take(pageSize).ToList();
+                var filteredPrices = transactions.Skip(partition * pageSize).Take(pageSize).ToList();
                 List<Task> tasks = new List<Task>();
                 for (int i = 0; i < filteredPrices.Count(); i++)
                 {
-                    var price = filteredPrices[i];
-                    tasks.Add(Task.Run(() => PriceProccess(price, invoiceNumber++, minimumPrice, averagePrice, masterProducts, cheapProducts, invoices)));
+                    var transaction = filteredPrices[i];
+                    tasks.Add(Task.Run(() => PriceProccess(transaction, invoiceNumber++, minimumPrice, averagePrice, masterProducts, cheapProducts, invoices)));
                     Task.WaitAll(tasks.ToArray());
                     tasks.Clear();
                 }
@@ -147,20 +148,20 @@ namespace InvoiceCreator
             GenerateExcelInvoice(invoices, outputPath, dateStart);
             MessageBox.Show($"Invoice file created successfully! \n in path : {outputPath}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
-        static void PriceProccess(int currentPrice, int invoiceNumber, decimal minimumProductPrice, decimal averagePrice, List<Product> masterProducts, List<Product> cheapProducts, List<Invoice> invoices)
+        static void PriceProccess(Transaction transaction, int invoiceNumber, decimal minimumProductPrice, decimal averagePrice, List<Product> masterProducts, List<Product> cheapProducts, List<Invoice> invoices)
         {
             var random = new Random();
             var selectedProducts = new List<Product>();
             decimal totalAmount = 0;
             var regulator = 0;
-            while (totalAmount < currentPrice)
+            while (totalAmount < transaction.Amount)
             {
                 var filterdProducts = regulator > 0 ? masterProducts.Where(e => e.Price <= regulator).ToList() : masterProducts.Where(e => e.Price >= averagePrice).ToList();
                 var product = filterdProducts?.Any() == true ? filterdProducts[random.Next(filterdProducts.Count)] : masterProducts[random.Next(masterProducts.Count)];
-                int quantity = random.Next(1, regulator > 0 ? 1 : 5);
+                int quantity = random.Next(1, regulator > 0 ? 1 : 10);
 
                 decimal totalProductAmount = quantity * product.Price;
-                if (totalAmount + totalProductAmount <= currentPrice)
+                if (totalAmount + totalProductAmount <= transaction.Amount)
                 {
                     if (selectedProducts.Any(e => e.Code == product.Code))
                         selectedProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity += quantity).ToList();
@@ -171,11 +172,11 @@ namespace InvoiceCreator
                     }
                     totalAmount += totalProductAmount;
                 }
-                if (totalAmount == currentPrice) break;
+                if (totalAmount == transaction.Amount) break;
 
-                if ((currentPrice - totalAmount) < minimumProductPrice)
+                if ((transaction.Amount - totalAmount) < minimumProductPrice)
                 {
-                    var remainedPrice = currentPrice - totalAmount;
+                    var remainedPrice = transaction.Amount - totalAmount;
                     if (remainedPrice >= 10000)
                     {
                         decimal calc = remainedPrice / 10000;
@@ -184,6 +185,7 @@ namespace InvoiceCreator
                         if (calc % 2 > 0)
                         {
                             var chunckedPrice = int.Parse((calc % 2).ToString("#.0000").Split('.')[1]);
+                            if (chunckedPrice == 0) break;
                             var chuckedProduct = cheapProducts.Where(e => e.Code != firstCheap.Code).ToList()[random.Next(cheapProducts.Count - 1)];
                             selectedProducts.Add(new Product { Code = chuckedProduct.Code, Price = chunckedPrice, Quantity = 1, UnitType = chuckedProduct.UnitType });
                         }
@@ -195,8 +197,8 @@ namespace InvoiceCreator
                     }
                     break;
                 }
-                else if ((totalAmount + totalProductAmount) > currentPrice)
-                { regulator = Convert.ToInt32(currentPrice - totalAmount) >= minimumProductPrice ? Convert.ToInt32(currentPrice - totalAmount) : Convert.ToInt32(minimumProductPrice); }
+                else if ((totalAmount + totalProductAmount) > transaction.Amount)
+                { regulator = Convert.ToInt32(transaction.Amount - totalAmount) >= minimumProductPrice ? Convert.ToInt32(transaction.Amount - totalAmount) : Convert.ToInt32(minimumProductPrice); }
                 else { regulator = 0; }
             }
 
@@ -209,7 +211,8 @@ namespace InvoiceCreator
                     Quantity = item.Quantity,
                     Total = item.Price,
                     UnitType = item.UnitType,
-                    PrimaryPrice = currentPrice
+                    PrimaryPrice = transaction.Amount,
+                    TransactionDescription = transaction.Description
                 });
             }
         }
@@ -267,7 +270,7 @@ namespace InvoiceCreator
                     worksheet.Cells[row, 14].Value = 0;
                     worksheet.Cells[row, 15].Value = 0;
                     worksheet.Cells[row, 16].Value = 0;
-                    worksheet.Cells[row, 17].Value = $"";
+                    worksheet.Cells[row, 17].Value = orderedinvoices[i].TransactionDescription;
                     worksheet.Cells[row, 18].Value = $"مشتري متفرقه-مصرف كننده نهايي";
                     worksheet.Cells[row, 19].Value = $"آدرس مشتري";
                     worksheet.Cells[row, 20].Value = 0;
@@ -342,6 +345,12 @@ namespace InvoiceCreator
             public decimal Total { get; set; }
             public UnitType UnitType { get; set; }
             public decimal PrimaryPrice { get; set; }
+            public string TransactionDescription { get; set; }
+        }
+        public class Transaction
+        {
+            public int Amount { get; set; }
+            public string Description { get; set; }
         }
         private enum UnitType
         {
