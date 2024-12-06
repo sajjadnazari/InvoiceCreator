@@ -53,6 +53,8 @@
             radioAsc = new RadioButton();
             groupBox2 = new GroupBox();
             groupBox3 = new GroupBox();
+            label6 = new Label();
+            txtCheap = new TextBox();
             panel1.SuspendLayout();
             groupBox1.SuspendLayout();
             groupBox2.SuspendLayout();
@@ -62,10 +64,10 @@
             // button1
             // 
             button1.BackColor = Color.GreenYellow;
-            button1.Location = new Point(35, 338);
+            button1.Location = new Point(44, 422);
             button1.Margin = new Padding(2);
             button1.Name = "button1";
-            button1.Size = new Size(145, 56);
+            button1.Size = new Size(181, 70);
             button1.TabIndex = 0;
             button1.Text = "Create Invoice";
             button1.UseVisualStyleBackColor = false;
@@ -75,10 +77,10 @@
             // 
             label1.AutoSize = true;
             label1.ForeColor = SystemColors.ActiveCaptionText;
-            label1.Location = new Point(21, 26);
+            label1.Location = new Point(26, 32);
             label1.Margin = new Padding(2, 0, 2, 0);
             label1.Name = "label1";
-            label1.Size = new Size(125, 20);
+            label1.Size = new Size(152, 25);
             label1.TabIndex = 1;
             label1.Text = "Products File Path";
             // 
@@ -86,10 +88,10 @@
             // 
             label2.AutoSize = true;
             label2.ForeColor = SystemColors.ActiveCaptionText;
-            label2.Location = new Point(21, 70);
+            label2.Location = new Point(26, 88);
             label2.Margin = new Padding(2, 0, 2, 0);
             label2.Name = "label2";
-            label2.Size = new Size(143, 20);
+            label2.Size = new Size(170, 25);
             label2.TabIndex = 2;
             label2.Text = "Transaction File Path";
             // 
@@ -100,33 +102,35 @@
             // txtProduct
             // 
             txtProduct.Enabled = false;
-            txtProduct.Location = new Point(194, 26);
+            txtProduct.Location = new Point(242, 32);
             txtProduct.Margin = new Padding(2);
             txtProduct.Name = "txtProduct";
-            txtProduct.Size = new Size(639, 27);
+            txtProduct.Size = new Size(798, 31);
             txtProduct.TabIndex = 3;
             // 
             // txtTransaction
             // 
             txtTransaction.Enabled = false;
-            txtTransaction.Location = new Point(194, 70);
+            txtTransaction.Location = new Point(242, 88);
             txtTransaction.Margin = new Padding(2);
             txtTransaction.Name = "txtTransaction";
-            txtTransaction.Size = new Size(639, 27);
+            txtTransaction.Size = new Size(798, 31);
             txtTransaction.TabIndex = 4;
             // 
             // progressBar1
             // 
-            progressBar1.Location = new Point(34, 434);
+            progressBar1.Location = new Point(42, 542);
+            progressBar1.Margin = new Padding(4);
             progressBar1.Name = "progressBar1";
-            progressBar1.Size = new Size(1071, 47);
+            progressBar1.Size = new Size(1339, 59);
             progressBar1.TabIndex = 5;
             // 
             // txtInvoiceNumber
             // 
-            txtInvoiceNumber.Location = new Point(184, 35);
+            txtInvoiceNumber.Location = new Point(230, 44);
+            txtInvoiceNumber.Margin = new Padding(4);
             txtInvoiceNumber.Name = "txtInvoiceNumber";
-            txtInvoiceNumber.Size = new Size(157, 27);
+            txtInvoiceNumber.Size = new Size(195, 31);
             txtInvoiceNumber.TabIndex = 6;
             // 
             // panel1
@@ -140,25 +144,28 @@
             panel1.Controls.Add(label1);
             panel1.Controls.Add(label2);
             panel1.Controls.Add(txtTransaction);
-            panel1.Location = new Point(34, 21);
+            panel1.Location = new Point(42, 26);
+            panel1.Margin = new Padding(4);
             panel1.Name = "panel1";
-            panel1.Size = new Size(1071, 161);
+            panel1.Size = new Size(1339, 201);
             panel1.TabIndex = 7;
             panel1.Paint += panel1_Paint;
             // 
             // txtSavePath
             // 
             txtSavePath.Enabled = false;
-            txtSavePath.Location = new Point(193, 116);
+            txtSavePath.Location = new Point(241, 145);
+            txtSavePath.Margin = new Padding(4);
             txtSavePath.Name = "txtSavePath";
-            txtSavePath.Size = new Size(639, 27);
+            txtSavePath.Size = new Size(798, 31);
             txtSavePath.TabIndex = 10;
             // 
             // button4
             // 
-            button4.Location = new Point(838, 116);
+            button4.Location = new Point(1048, 145);
+            button4.Margin = new Padding(4);
             button4.Name = "button4";
-            button4.Size = new Size(94, 29);
+            button4.Size = new Size(118, 36);
             button4.TabIndex = 9;
             button4.Text = "Select";
             button4.UseVisualStyleBackColor = true;
@@ -168,18 +175,19 @@
             // 
             label5.AutoSize = true;
             label5.ForeColor = SystemColors.ActiveCaptionText;
-            label5.Location = new Point(21, 120);
+            label5.Location = new Point(26, 150);
             label5.Margin = new Padding(2, 0, 2, 0);
             label5.Name = "label5";
-            label5.Size = new Size(157, 20);
+            label5.Size = new Size(187, 25);
             label5.TabIndex = 8;
             label5.Text = "Save file path (output)";
             // 
             // button2
             // 
-            button2.Location = new Point(838, 26);
+            button2.Location = new Point(1048, 32);
+            button2.Margin = new Padding(4);
             button2.Name = "button2";
-            button2.Size = new Size(94, 29);
+            button2.Size = new Size(118, 36);
             button2.TabIndex = 7;
             button2.Text = "open";
             button2.UseVisualStyleBackColor = true;
@@ -187,9 +195,10 @@
             // 
             // button3
             // 
-            button3.Location = new Point(838, 68);
+            button3.Location = new Point(1048, 85);
+            button3.Margin = new Padding(4);
             button3.Name = "button3";
-            button3.Size = new Size(94, 29);
+            button3.Size = new Size(118, 36);
             button3.TabIndex = 6;
             button3.Text = "open";
             button3.UseVisualStyleBackColor = true;
@@ -197,19 +206,20 @@
             // 
             // txtDate
             // 
-            txtDate.Location = new Point(184, 70);
+            txtDate.Location = new Point(230, 88);
+            txtDate.Margin = new Padding(4);
             txtDate.Name = "txtDate";
-            txtDate.Size = new Size(157, 27);
+            txtDate.Size = new Size(195, 31);
             txtDate.TabIndex = 10;
             // 
             // label4
             // 
             label4.AutoSize = true;
             label4.ForeColor = SystemColors.ActiveCaptionText;
-            label4.Location = new Point(15, 70);
+            label4.Location = new Point(19, 88);
             label4.Margin = new Padding(2, 0, 2, 0);
             label4.Name = "label4";
-            label4.Size = new Size(92, 20);
+            label4.Size = new Size(110, 25);
             label4.TabIndex = 9;
             label4.Text = "Invoice Date";
             // 
@@ -217,19 +227,20 @@
             // 
             label3.AutoSize = true;
             label3.ForeColor = SystemColors.ActiveCaptionText;
-            label3.Location = new Point(15, 38);
+            label3.Location = new Point(19, 48);
             label3.Margin = new Padding(2, 0, 2, 0);
             label3.Name = "label3";
-            label3.Size = new Size(149, 20);
+            label3.Size = new Size(179, 25);
             label3.TabIndex = 5;
             label3.Text = "Invoice Number Start";
             // 
             // radioPrice
             // 
             radioPrice.AutoSize = true;
-            radioPrice.Location = new Point(25, 68);
+            radioPrice.Location = new Point(31, 85);
+            radioPrice.Margin = new Padding(4);
             radioPrice.Name = "radioPrice";
-            radioPrice.Size = new Size(83, 24);
+            radioPrice.Size = new Size(102, 29);
             radioPrice.TabIndex = 17;
             radioPrice.TabStop = true;
             radioPrice.Text = "Amount";
@@ -238,9 +249,10 @@
             // radioInvoice
             // 
             radioInvoice.AutoSize = true;
-            radioInvoice.Location = new Point(25, 38);
+            radioInvoice.Location = new Point(31, 48);
+            radioInvoice.Margin = new Padding(4);
             radioInvoice.Name = "radioInvoice";
-            radioInvoice.Size = new Size(132, 24);
+            radioInvoice.Size = new Size(160, 29);
             radioInvoice.TabIndex = 16;
             radioInvoice.TabStop = true;
             radioInvoice.Text = "Invoice number";
@@ -250,9 +262,11 @@
             // 
             groupBox1.Controls.Add(radioInvoice);
             groupBox1.Controls.Add(radioPrice);
-            groupBox1.Location = new Point(450, 197);
+            groupBox1.Location = new Point(562, 246);
+            groupBox1.Margin = new Padding(4);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(193, 117);
+            groupBox1.Padding = new Padding(4);
+            groupBox1.Size = new Size(241, 146);
             groupBox1.TabIndex = 18;
             groupBox1.TabStop = false;
             groupBox1.Text = "Order by";
@@ -260,9 +274,10 @@
             // radioDesc
             // 
             radioDesc.AutoSize = true;
-            radioDesc.Location = new Point(33, 70);
+            radioDesc.Location = new Point(41, 88);
+            radioDesc.Margin = new Padding(4);
             radioDesc.Name = "radioDesc";
-            radioDesc.Size = new Size(108, 24);
+            radioDesc.Size = new Size(130, 29);
             radioDesc.TabIndex = 19;
             radioDesc.TabStop = true;
             radioDesc.Text = "Descending";
@@ -271,9 +286,10 @@
             // radioAsc
             // 
             radioAsc.AutoSize = true;
-            radioAsc.Location = new Point(33, 34);
+            radioAsc.Location = new Point(41, 42);
+            radioAsc.Margin = new Padding(4);
             radioAsc.Name = "radioAsc";
-            radioAsc.Size = new Size(99, 24);
+            radioAsc.Size = new Size(120, 29);
             radioAsc.TabIndex = 18;
             radioAsc.TabStop = true;
             radioAsc.Text = "Ascending";
@@ -285,9 +301,11 @@
             groupBox2.Controls.Add(txtDate);
             groupBox2.Controls.Add(txtInvoiceNumber);
             groupBox2.Controls.Add(label4);
-            groupBox2.Location = new Point(34, 197);
+            groupBox2.Location = new Point(42, 246);
+            groupBox2.Margin = new Padding(4);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(394, 117);
+            groupBox2.Padding = new Padding(4);
+            groupBox2.Size = new Size(492, 146);
             groupBox2.TabIndex = 19;
             groupBox2.TabStop = false;
             groupBox2.Text = "Initialize";
@@ -296,19 +314,41 @@
             // 
             groupBox3.Controls.Add(radioAsc);
             groupBox3.Controls.Add(radioDesc);
-            groupBox3.Location = new Point(665, 197);
+            groupBox3.Location = new Point(831, 246);
+            groupBox3.Margin = new Padding(4);
             groupBox3.Name = "groupBox3";
-            groupBox3.Size = new Size(250, 117);
+            groupBox3.Padding = new Padding(4);
+            groupBox3.Size = new Size(312, 146);
             groupBox3.TabIndex = 20;
             groupBox3.TabStop = false;
             groupBox3.Text = "Sort type";
             // 
+            // label6
+            // 
+            label6.AutoSize = true;
+            label6.Location = new Point(353, 445);
+            label6.Name = "label6";
+            label6.Size = new Size(135, 25);
+            label6.TabIndex = 21;
+            label6.Text = "Cheap Producs:";
+            // 
+            // txtCheap
+            // 
+            txtCheap.BorderStyle = BorderStyle.FixedSingle;
+            txtCheap.Location = new Point(494, 445);
+            txtCheap.Multiline = true;
+            txtCheap.Name = "txtCheap";
+            txtCheap.Size = new Size(879, 47);
+            txtCheap.TabIndex = 22;
+            // 
             // Form1
             // 
-            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.LightSteelBlue;
-            ClientSize = new Size(1131, 493);
+            ClientSize = new Size(1414, 616);
+            Controls.Add(txtCheap);
+            Controls.Add(label6);
             Controls.Add(groupBox3);
             Controls.Add(groupBox2);
             Controls.Add(groupBox1);
@@ -328,6 +368,7 @@
             groupBox3.ResumeLayout(false);
             groupBox3.PerformLayout();
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -357,5 +398,7 @@
         private GroupBox groupBox2;
         private RadioButton radioDesc;
         private GroupBox groupBox3;
+        private Label label6;
+        private TextBox txtCheap;
     }
 }

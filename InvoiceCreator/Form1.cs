@@ -1,6 +1,7 @@
-﻿using OfficeOpenXml;
+﻿using System.Globalization;
+using System.Text;
+using OfficeOpenXml;
 using OfficeOpenXml.Style;
-using System.Collections.Concurrent;
 
 namespace InvoiceCreator
 {
@@ -31,7 +32,14 @@ namespace InvoiceCreator
                             {
                                 var products = await ReadProductsAsync(productsFilePath);
                                 if (products?.Any() == true)
-                                    CreteInvoiceAsync(invoiceFilePath, transactionAmounts.ToList(), products.ToList(), invoiceNumberIndex, txtDate.Text);
+                                {
+                                    var totalProduct = products.Sum(e => e.Quantity * e.Price);
+                                    long sumTransactions = transactionAmounts.Sum(e => e.Amount);
+                                    if (sumTransactions >= totalProduct)
+                                        MessageBox.Show("جمع کل موجودی کالا از جمع کل مجموع تراکنش بیشتر است");
+                                    else
+                                        CreteInvoiceAsync(invoiceFilePath, transactionAmounts.ToList(), products.ToList(), invoiceNumberIndex, txtDate.Text);
+                                }
                                 else
                                     MessageBox.Show("Product Files Not found", "", MessageBoxButtons.OK, MessageBoxIcon.Error);
                             }
@@ -96,14 +104,14 @@ namespace InvoiceCreator
                         tasks.Add(Task.Run(() =>
                         {
                             var code = int.Parse(worksheet.Cells[currentRow, 1].Text);
-                            var count = 0;
+                            var count = decimal.Parse(worksheet.Cells[currentRow, 3].Text, CultureInfo.InvariantCulture.NumberFormat);
                             var unit = worksheet.Cells[currentRow, 4].Text.Trim() == "كيلوگرم" ? UnitType.Kilogram
                                 : worksheet.Cells[currentRow, 4].Text.Trim() == "عدد" ? UnitType.Num : UnitType.Unknow;
                             var price = !string.IsNullOrWhiteSpace(worksheet?.Cells[currentRow, 5].Text) ? int.Parse(worksheet?.Cells[currentRow, 5].Text?.Replace(",", "")?.ToString() ?? "0") : 0;
                             var product = new Product
                             {
                                 Code = code,
-                                Quantity = count,
+                                Quantity = Convert.ToInt32(count),
                                 Price = price,
                                 UnitType = unit
                             };
@@ -121,8 +129,8 @@ namespace InvoiceCreator
             List<Invoice> invoices = new List<Invoice>();
             var masterProducts = products.Where(e => e.Price > 0).ToList();
             var cheapProducts = products.Any(e => e.Price == 0) ? products.Where(e => e.Price == 0).ToList() : FakeProducts();
-            decimal minimumPrice = masterProducts.OrderBy(s => s.Price).Select(s => s.Price).FirstOrDefault();
-            decimal averagePrice = masterProducts.Average(e => e.Price);
+            long minimumPrice = masterProducts.OrderBy(s => s.Price).Select(s => s.Price).FirstOrDefault();
+            var averagePrice = (int)masterProducts.Average(e => e.Price);
 
             int pageSize = 10;
             var TotalPages = (int)Math.Ceiling(transactions.Count / (double)pageSize);
@@ -138,7 +146,7 @@ namespace InvoiceCreator
                 for (int i = 0; i < filteredPrices.Count(); i++)
                 {
                     var transaction = filteredPrices[i];
-                    tasks.Add(Task.Run(() => PriceProccess(transaction, invoiceNumber++, minimumPrice, averagePrice, masterProducts, cheapProducts, invoices)));
+                    tasks.Add(Task.Run(() => PriceProccess(transaction, invoiceNumber++, minimumPrice, averagePrice, ref masterProducts, ref cheapProducts, invoices)));
                     Task.WaitAll(tasks.ToArray());
                     tasks.Clear();
                 }
@@ -146,60 +154,86 @@ namespace InvoiceCreator
             }
 
             GenerateExcelInvoice(invoices, outputPath, dateStart);
+
+            txtCheap.Text = invoices.Where(el => cheapProducts.Select(e => e.Code).Contains(el.ProductCode))
+                .GroupBy(e => e.ProductCode)
+                .Select(s => new
+                {
+                    Code = s.Key,
+                    Total = s.Sum(e => e.Quantity)
+                }).Select(el => string.Join(",","Code"+el.Code +" => Count : "+ el.Total)).ToList().Aggregate((a, b) => a + "  ,  " + b);
+
             MessageBox.Show($"Invoice file created successfully! \n in path : {outputPath}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
-        static void PriceProccess(Transaction transaction, int invoiceNumber, decimal minimumProductPrice, decimal averagePrice, List<Product> masterProducts, List<Product> cheapProducts, List<Invoice> invoices)
+        static void PriceProccess(Transaction transaction, int invoiceNumber, long minimumProductPrice, int averagePrice, ref List<Product> masterProducts, ref List<Product> cheapProducts, List<Invoice> invoices)
         {
+
             var random = new Random();
             var selectedProducts = new List<Product>();
-            decimal totalAmount = 0;
-            var regulator = 0;
+            long totalAmount = 0;
+            long regulator = 0;
+            long remainingPrice = 0;
+              
             while (totalAmount < transaction.Amount)
             {
+                masterProducts = masterProducts.Where(el => el.Quantity > 0).ToList();
+                masterProducts = masterProducts?.Any() == true ? masterProducts : cheapProducts;
                 var filterdProducts = regulator > 0 ? masterProducts.Where(e => e.Price <= regulator).ToList() : masterProducts.Where(e => e.Price >= averagePrice).ToList();
-                var product = filterdProducts?.Any() == true ? filterdProducts[random.Next(filterdProducts.Count)] : masterProducts[random.Next(masterProducts.Count)];
-                int quantity = random.Next(1, regulator > 0 ? 1 : 10);
+                filterdProducts = filterdProducts?.Any() == true ? filterdProducts : cheapProducts;
+                var product = filterdProducts[random.Next(filterdProducts.Count)];
 
-                decimal totalProductAmount = quantity * product.Price;
-                if (totalAmount + totalProductAmount <= transaction.Amount)
+                int calculatedQuantity = 0;
+                if (totalAmount > 0)
                 {
+                    remainingPrice = transaction.Amount - selectedProducts.Sum(e => e.Quantity * e.Price);
+                    calculatedQuantity = remainingPrice <= product.Price || remainingPrice == 0 || product.Price == 0 ? 1 : (int)Math.Floor((decimal)(remainingPrice / product.Price));
+                }
+                else
+                    calculatedQuantity = (int)(transaction.Amount > product.Price && product.Price > 0 ? Math.Floor((decimal)(transaction.Amount / product.Price)) : product.Quantity);
+
+                calculatedQuantity = calculatedQuantity >= product.Quantity ? product.Quantity > 10 ? 10 : product.Quantity : calculatedQuantity;
+                int quantity = random.Next(1, calculatedQuantity);
+
+                long totalProductAmount = quantity * product.Price;
+                if (totalAmount + totalProductAmount <= transaction.Amount && product.Price > 0)
+                {
+                    masterProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity -= quantity).ToList();
                     if (selectedProducts.Any(e => e.Code == product.Code))
                         selectedProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity += quantity).ToList();
                     else
-                    {
-                        product.Quantity = quantity;
-                        selectedProducts.Add(product);
-                    }
+                        selectedProducts.Add(new Product { Code = product.Code, Price = product.Price, Quantity = quantity, UnitType = product.UnitType });
                     totalAmount += totalProductAmount;
                 }
                 if (totalAmount == transaction.Amount) break;
 
-                if ((transaction.Amount - totalAmount) < minimumProductPrice)
+                if ((transaction.Amount - totalAmount) < minimumProductPrice || product.Price == 0)
                 {
-                    var remainedPrice = transaction.Amount - totalAmount;
+                    decimal remainedPrice = transaction.Amount - totalAmount;
                     if (remainedPrice >= 10000)
                     {
                         decimal calc = remainedPrice / 10000;
                         var firstCheap = cheapProducts.FirstOrDefault();
-                        selectedProducts.Add(new Product { Code = firstCheap.Code, Price = 10000, Quantity = Convert.ToInt32(Math.Floor(calc)), UnitType = firstCheap.UnitType });
+                        selectedProducts.Add(new Product { Code = firstCheap.Code, Price = 10000, Quantity = Convert.ToInt32(Math.Floor(calc)), UnitType = firstCheap.UnitType });                     
                         if (calc % 2 > 0)
                         {
                             var chunckedPrice = int.Parse((calc % 2).ToString("#.0000").Split('.')[1]);
                             if (chunckedPrice == 0) break;
                             var chuckedProduct = cheapProducts.Where(e => e.Code != firstCheap.Code).ToList()[random.Next(cheapProducts.Count - 1)];
-                            selectedProducts.Add(new Product { Code = chuckedProduct.Code, Price = chunckedPrice, Quantity = 1, UnitType = chuckedProduct.UnitType });
+                            selectedProducts.Add(new Product { Code = chuckedProduct.Code, Price = chunckedPrice, Quantity = 1, UnitType = chuckedProduct.UnitType });                           
                         }
                     }
                     else
                     {
                         var firstCheap = cheapProducts[random.Next(cheapProducts.Count)];
-                        selectedProducts.Add(new Product { Code = firstCheap.Code, Price = remainedPrice, Quantity = 1, UnitType = firstCheap.UnitType });
+                        selectedProducts.Add(new Product { Code = firstCheap.Code, Price = (long)remainedPrice, Quantity = 1, UnitType = firstCheap.UnitType });                      
                     }
                     break;
                 }
                 else if ((totalAmount + totalProductAmount) > transaction.Amount)
-                { regulator = Convert.ToInt32(transaction.Amount - totalAmount) >= minimumProductPrice ? Convert.ToInt32(transaction.Amount - totalAmount) : Convert.ToInt32(minimumProductPrice); }
-                else { regulator = 0; }
+                {
+                    regulator = transaction.Amount - totalAmount;
+                }
+                else { regulator = totalAmount > 0 ? transaction.Amount > totalAmount ? transaction.Amount - totalAmount : totalAmount - transaction.Amount : 0; }
             }
 
             foreach (var item in selectedProducts)
@@ -335,7 +369,7 @@ namespace InvoiceCreator
             public int Code { get; set; }
             public int Quantity { get; set; }
             public UnitType UnitType { get; set; }
-            public decimal Price { get; set; }
+            public long Price { get; set; }
         }
         private struct Invoice
         {
@@ -349,7 +383,7 @@ namespace InvoiceCreator
         }
         public class Transaction
         {
-            public int Amount { get; set; }
+            public long Amount { get; set; }
             public string Description { get; set; }
         }
         private enum UnitType
