@@ -82,7 +82,7 @@ namespace InvoiceCreator
                         }));
                     }
                     await Task.WhenAll(tasks);
-                    return records;
+                    return records.OrderByDescending(e => e.Amount).ToList();
                 }
             };
 
@@ -119,7 +119,7 @@ namespace InvoiceCreator
                         }));
                     }
                     await Task.WhenAll(tasks);
-                    return records;
+                    return records.OrderByDescending(e => e.Price).ThenBy(s => s.Quantity).ToList();
                 }
             };
             return new List<Product>();
@@ -128,7 +128,7 @@ namespace InvoiceCreator
         {
             List<Invoice> invoices = new List<Invoice>();
             var masterProducts = products.Where(e => e.Price > 0).ToList();
-            var cheapProducts = products.Any(e => e.Price == 0) ? products.Where(e => e.Price == 0).ToList() : FakeProducts();
+            var cheapProducts = products.Any(e => e.Price == 0) ? GeneratePriceForCheatProducts(products.Where(e => e.Price == 0).ToList()) : FakeProducts();
             long minimumPrice = masterProducts.OrderBy(s => s.Price).Select(s => s.Price).FirstOrDefault();
             var averagePrice = (int)masterProducts.Average(e => e.Price);
 
@@ -161,19 +161,18 @@ namespace InvoiceCreator
                 {
                     Code = s.Key,
                     Total = s.Sum(e => e.Quantity)
-                }).Select(el => string.Join(",","Code"+el.Code +" => Count : "+ el.Total)).ToList().Aggregate((a, b) => a + "  ,  " + b);
+                }).Select(el => string.Join(",", "Code" + el.Code + " => Count : " + el.Total)).ToList().Aggregate((a, b) => a + "  ,  " + b);
 
             MessageBox.Show($"Invoice file created successfully! \n in path : {outputPath}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         static void PriceProccess(Transaction transaction, int invoiceNumber, long minimumProductPrice, int averagePrice, ref List<Product> masterProducts, ref List<Product> cheapProducts, List<Invoice> invoices)
         {
-
             var random = new Random();
             var selectedProducts = new List<Product>();
             long totalAmount = 0;
             long regulator = 0;
             long remainingPrice = 0;
-              
+
             while (totalAmount < transaction.Amount)
             {
                 masterProducts = masterProducts.Where(el => el.Quantity > 0).ToList();
@@ -185,13 +184,13 @@ namespace InvoiceCreator
                 int calculatedQuantity = 0;
                 if (totalAmount > 0)
                 {
-                    remainingPrice = transaction.Amount - selectedProducts.Sum(e => e.Quantity * e.Price);
+                    //remainingPrice = transaction.Amount - selectedProducts.Sum(e => e.Quantity * e.Price);
                     calculatedQuantity = remainingPrice <= product.Price || remainingPrice == 0 || product.Price == 0 ? 1 : (int)Math.Floor((decimal)(remainingPrice / product.Price));
                 }
                 else
                     calculatedQuantity = (int)(transaction.Amount > product.Price && product.Price > 0 ? Math.Floor((decimal)(transaction.Amount / product.Price)) : product.Quantity);
 
-                calculatedQuantity = calculatedQuantity >= product.Quantity ? product.Quantity > 10 ? 10 : product.Quantity : calculatedQuantity;
+                //calculatedQuantity = calculatedQuantity >= product.Quantity ? product.Quantity > 10 ? 10 : product.Quantity : calculatedQuantity;
                 int quantity = random.Next(1, calculatedQuantity);
 
                 long totalProductAmount = quantity * product.Price;
@@ -213,19 +212,19 @@ namespace InvoiceCreator
                     {
                         decimal calc = remainedPrice / 10000;
                         var firstCheap = cheapProducts.FirstOrDefault();
-                        selectedProducts.Add(new Product { Code = firstCheap.Code, Price = 10000, Quantity = Convert.ToInt32(Math.Floor(calc)), UnitType = firstCheap.UnitType });                     
+                        selectedProducts.Add(new Product { Code = firstCheap.Code, Price = 10000, Quantity = Convert.ToInt32(Math.Floor(calc)), UnitType = firstCheap.UnitType });
                         if (calc % 2 > 0)
                         {
                             var chunckedPrice = int.Parse((calc % 2).ToString("#.0000").Split('.')[1]);
                             if (chunckedPrice == 0) break;
                             var chuckedProduct = cheapProducts.Where(e => e.Code != firstCheap.Code).ToList()[random.Next(cheapProducts.Count - 1)];
-                            selectedProducts.Add(new Product { Code = chuckedProduct.Code, Price = chunckedPrice, Quantity = 1, UnitType = chuckedProduct.UnitType });                           
+                            selectedProducts.Add(new Product { Code = chuckedProduct.Code, Price = 1000, Quantity = chunckedPrice / 1000, UnitType = chuckedProduct.UnitType });
                         }
                     }
                     else
                     {
                         var firstCheap = cheapProducts[random.Next(cheapProducts.Count)];
-                        selectedProducts.Add(new Product { Code = firstCheap.Code, Price = (long)remainedPrice, Quantity = 1, UnitType = firstCheap.UnitType });                      
+                        selectedProducts.Add(new Product { Code = firstCheap.Code, Price = 1000, Quantity = (int)remainedPrice / 1000, UnitType = firstCheap.UnitType });
                     }
                     break;
                 }
@@ -250,20 +249,43 @@ namespace InvoiceCreator
                 });
             }
         }
+        private List<Product> GeneratePriceForCheatProducts(List<Product> cheatProducts)
+        {
+            int index = 1;
+            cheatProducts.ForEach(el =>
+            {
+                el.Price = index % 2 == 0 ? 10000 : 10000;
+            });
+            return cheatProducts;
+        }
         private List<Product> FakeProducts() => new List<Product>
         {
             new Product
             {
                 Code = 100001,
-                Price = 0,
-                Quantity = 0,
+                Price = 10000,
+                Quantity = 7000,
                 UnitType = UnitType.Num
             },
             new Product
             {
                 Code = 100002,
-                Price = 0,
-                Quantity = 0,
+                Price = 1000,
+                Quantity = 7000,
+                UnitType = UnitType.Num
+            },
+            new Product
+            {
+                Code = 100003,
+                Price = 10000,
+                Quantity = 7000,
+                UnitType = UnitType.Num
+            },
+            new Product
+            {
+                Code = 100004,
+                Price = 10000,
+                Quantity = 7000,
                 UnitType = UnitType.Num
             },
         };
@@ -367,7 +389,7 @@ namespace InvoiceCreator
         private class Product
         {
             public int Code { get; set; }
-            public int Quantity { get; set; }
+            public decimal Quantity { get; set; }
             public UnitType UnitType { get; set; }
             public long Price { get; set; }
         }
@@ -375,7 +397,7 @@ namespace InvoiceCreator
         {
             public int Number { get; set; }
             public int ProductCode { get; set; }
-            public int Quantity { get; set; }
+            public decimal Quantity { get; set; }
             public decimal Total { get; set; }
             public UnitType UnitType { get; set; }
             public decimal PrimaryPrice { get; set; }

@@ -49,6 +49,22 @@
         "PrivateKeyFile" = "8:"
         "TimeStampServer" = "8:"
         "InstallerBootstrapper" = "3:2"
+            "BootstrapperCfg:{63ACBE69-63AA-4F98-B2B6-99F9E24495F2}"
+            {
+            "Enabled" = "11:TRUE"
+            "PromptEnabled" = "11:TRUE"
+            "PrerequisitesLocation" = "2:1"
+            "Url" = "8:"
+            "ComponentsUrl" = "8:"
+                "Items"
+                {
+                    "{EDC2488A-8267-493A-A98E-7D9C3B36CDF3}:.NETFramework,Version=v4.7.2"
+                    {
+                    "Name" = "8:Microsoft .NET Framework 4.7.2 (x86 and x64)"
+                    "ProductCode" = "8:.NETFramework,Version=v4.7.2"
+                    }
+                }
+            }
         }
         "Release"
         {
@@ -65,6 +81,14 @@
         "PrivateKeyFile" = "8:"
         "TimeStampServer" = "8:"
         "InstallerBootstrapper" = "3:2"
+            "BootstrapperCfg:{63ACBE69-63AA-4F98-B2B6-99F9E24495F2}"
+            {
+            "Enabled" = "11:TRUE"
+            "PromptEnabled" = "11:TRUE"
+            "PrerequisitesLocation" = "2:1"
+            "Url" = "8:"
+            "ComponentsUrl" = "8:"
+            }
         }
     }
     "Deployable"
@@ -192,21 +216,21 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Invoice Creator"
-        "ProductCode" = "8:{5BCA5699-A45B-4DB5-89AB-0E2CBD5E991F}"
-        "PackageCode" = "8:{5319D6D1-0790-48B4-B6C3-98EA131476E7}"
+        "ProductCode" = "8:{B2F438A2-F885-4222-AA6C-E3C7207951DA}"
+        "PackageCode" = "8:{91B174A6-8CE5-4A53-9751-494BCE40BC0D}"
         "UpgradeCode" = "8:{192AD598-5085-480B-9850-6BC5B064893F}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
-        "RemovePreviousVersions" = "11:FALSE"
+        "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.0.2"
+        "ProductVersion" = "8:1.0.3"
         "Manufacturer" = "8:Invoice Creator"
         "ARPHELPTELEPHONE" = "8:09382151996"
         "ARPHELPLINK" = "8:"
         "Title" = "8:Invoice Creator"
         "Subject" = "8:Random Invoice Creator"
-        "ARPCONTACT" = "8:InvoiceCreator"
+        "ARPCONTACT" = "8:S.nazari"
         "Keywords" = "8:"
         "ARPCOMMENTS" = "8:Invoice creator"
         "ARPURLINFOABOUT" = "8:"
