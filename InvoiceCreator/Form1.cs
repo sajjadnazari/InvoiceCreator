@@ -1,6 +1,6 @@
-﻿using OfficeOpenXml;
+﻿using System.Globalization;
+using OfficeOpenXml;
 using OfficeOpenXml.Style;
-using System.Globalization;
 
 namespace InvoiceCreator
 {
@@ -15,6 +15,7 @@ namespace InvoiceCreator
         {
             try
             {
+
                 if (!string.IsNullOrWhiteSpace(txtSavePath.Text))
                 {
                     if (!string.IsNullOrWhiteSpace(txtDate.Text))
@@ -188,8 +189,8 @@ namespace InvoiceCreator
                 masterProducts = masterProducts.Where(el => el.Quantity > 0).ToList();
                 cheapProducts = cheapProducts.Where(e => e.Quantity > 0).ToList();
                 masterProducts = masterProducts?.Any() == true ? masterProducts : cheapProducts;
-                var filterdProducts = regulator > 0 ? masterProducts.Where(e => e.Price <= regulator).ToList() : selectedProducts.Any() ? masterProducts.Where(e => e.Price >= averagePrice).ToList() : masterProducts;
-                filterdProducts = filterdProducts?.Any() == true ? filterdProducts : cheapProducts;
+                var filterdProducts = regulator > 0 ? masterProducts.Where(e => e.Price <= regulator).OrderByDescending(e => e.Price).ToList() : masterProducts;
+                filterdProducts = filterdProducts?.Any() == true ? filterdProducts : masterProducts.ToList();
 
                 if (CheckProductPriceEqualityWithTransaction(transaction.Amount, ref filterdProducts, ref selectedProducts, ref selectedProducts)) break;
                 var ProductAndQuantity = InitializeSelectProduct(transaction.Amount, ref masterProducts, ref filterdProducts, ref selectedProducts, ref remainingPrice, ref totalAmount);
@@ -222,7 +223,6 @@ namespace InvoiceCreator
                 });
             }
         }
-
         static (Product product, decimal quantity) InitializeSelectProduct(decimal transactionPrice, ref List<Product> masterProducts, ref List<Product> filteredProducts, ref List<Product> selectedProducts, ref decimal remainingPrice, ref decimal totalAmount)
         {
             var random = new Random();
@@ -231,67 +231,93 @@ namespace InvoiceCreator
             decimal calculatedQuantity = 0;
             if (selectedProducts?.Any() == false && filteredProducts.Any(e => e.IsPrimary && e.Quantity >= 1))
             {
-                var primartProducts = filteredProducts.Where(e => e.IsPrimary && e.Price <= transactionPrice).ToList();
-                if (primartProducts?.Any() == true)
+                var primaryProducts = filteredProducts.Where(e => e.IsPrimary && e.Price <= transactionPrice).ToList();
+                if (primaryProducts?.Any() == true)
                 {
-                    var minimumPrimaryPrice = primartProducts.OrderBy(e => e.Price).FirstOrDefault();
+                    var minimumPrimaryPrice = primaryProducts.OrderBy(e => e.Price).FirstOrDefault();
                     if ((transactionPrice <= minimumPrimaryPrice.Price) || (transactionPrice <= (minimumPrimaryPrice.Price * 2)))
                     {
+                        product = minimumPrimaryPrice;
                         selectedProducts.Add(new Product { Code = minimumPrimaryPrice.Code, Price = minimumPrimaryPrice.Price, Quantity = 1, UnitType = product.UnitType });
                         masterProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity -= 1).ToList();
+                        remainingPrice = transactionPrice - (1 * product.Price);
+                        totalAmount = 1 * product.Price;
                     }
                     else
-                    {
-                        var roundPrice = (int)Math.Floor(transactionPrice / 3);
-                        if (primartProducts.Any(el => el.UnitType == UnitType.Kilogram))
+                    {                       
+                        var roundPrice = (int)Math.Floor(transactionPrice / 2);
+                        if (primaryProducts.Any(el => el.UnitType == UnitType.Kilogram))
                         {
-                            var kilogramProduct = primartProducts.Where(e => e.UnitType == UnitType.Kilogram).ToList();
+                            var kilogramProduct = primaryProducts.Where(e => e.UnitType == UnitType.Kilogram).ToList();
                             product = kilogramProduct[random.Next(kilogramProduct.Count)];
+                            var t1 = transactionPrice / product.Price;
                             if (roundPrice >= product.Price)
                             {
                                 quantity = Math.Floor(roundPrice / product.Price);
-                                selectedProducts.Add(new Product { Code = product.Code, Price = product.Price, Quantity = quantity, UnitType = product.UnitType });
-                                masterProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity -= quantity).ToList();
-                                totalAmount = quantity * product.Price;
+                                decimal[] someKiloRounded = { 0.500m, 0.250m, 0, 0.750m };
+                                quantity += someKiloRounded[random.Next(someKiloRounded.Count())];
+                                if (quantity * product.Price <= transactionPrice)
+                                {
+                                    selectedProducts.Add(new Product { Code = product.Code, Price = product.Price, Quantity = quantity, UnitType = product.UnitType });
+                                    masterProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity -= quantity).ToList();
+                                    totalAmount = quantity * product.Price;
+                                    remainingPrice = transactionPrice - (quantity * product.Price);
+                                }
+                                else
+                                    product = null;
                             }
+                            else
+                                product = null;
                         }
                         else
                         {
-                            product = primartProducts[random.Next(primartProducts.Count())];
+                            product = primaryProducts[random.Next(primaryProducts.Count())];
                             if (roundPrice >= product.Price)
                             {
                                 quantity = (int)(Math.Floor(roundPrice / product.Price));
                                 selectedProducts.Add(new Product { Code = product.Code, Price = product.Price, Quantity = quantity, UnitType = product.UnitType });
                                 masterProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity -= quantity).ToList();
                                 totalAmount = quantity * product.Price;
+                                remainingPrice = transactionPrice - (quantity * product.Price);
                             }
+                            else
+                                product = null;
                         }
                     }
                 }
             }
-            else if (product.Price == 0 && product.Quantity == 0)
+            if (product is null || (product?.Price == 0 && product?.Quantity == 0))
             {
-                product = filteredProducts[random.Next(filteredProducts.Count)];
-                if (totalAmount > 0)
+                decimal calculatedPrice = remainingPrice > 0 ? remainingPrice : transactionPrice;
+                filteredProducts = masterProducts.Where(e => e.Price <= calculatedPrice).OrderByDescending(e => e.Price).Take(1).ToList();
+                if (filteredProducts?.Any() == true)
                 {
-                    remainingPrice = transactionPrice - selectedProducts.Sum(e => e.Quantity * e.Price);
-                    calculatedQuantity = remainingPrice <= product.Price || remainingPrice == 0 || product.Price == 0 ? 1 : (int)Math.Floor((decimal)(remainingPrice / product.Price));
-                }
-                else
-                    calculatedQuantity = (int)(transactionPrice > product.Price && product.Price > 0 ? Math.Floor((decimal)(transactionPrice / product.Price)) : product.Quantity);
-
-                calculatedQuantity = calculatedQuantity >= product.Quantity ? product.Quantity > 10 ? 10 : product.Quantity : calculatedQuantity;
-                quantity = random.Next(1, (int)calculatedQuantity);
-
-                decimal totalProductAmount = quantity * product.Price;
-                if (totalAmount + totalProductAmount <= transactionPrice && product.Price > 0)
-                {
-                    masterProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity -= quantity).ToList();
-                    if (selectedProducts.Any(e => e.Code == product.Code))
-                        selectedProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity += quantity).ToList();
+                    product = filteredProducts[random.Next(filteredProducts.Count)];
+                    if (product.Code == 1000298 || product.Code == 10000329)
+                    {
+                        var vm = masterProducts.Where(e => e.Quantity > 0).ToList();
+                    }
+                    if (totalAmount > 0)
+                    {
+                        remainingPrice = transactionPrice - selectedProducts.Sum(e => e.Quantity * e.Price);
+                        calculatedQuantity = remainingPrice <= product.Price || remainingPrice == 0 || product.Price == 0 ? 1 : (int)Math.Floor((decimal)(remainingPrice / product.Price));
+                    }
                     else
-                        selectedProducts.Add(new Product { Code = product.Code, Price = product.Price, Quantity = quantity, UnitType = product.UnitType });
-                    totalAmount += totalProductAmount;
+                        calculatedQuantity = (int)(transactionPrice > product.Price && product.Price > 0 ? Math.Floor((decimal)(transactionPrice / product.Price)) : product.Quantity);
+
+                    calculatedQuantity = calculatedQuantity >= product.Quantity ? product.Quantity > 10 ? 10 : product.Quantity : calculatedQuantity;
+                    quantity = random.Next(1, (int)calculatedQuantity);
+
+                    decimal totalProductAmount = quantity * product.Price;
+                    if (totalAmount + totalProductAmount <= transactionPrice && product.Price > 0)
+                    {
+                        masterProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity -= quantity).ToList();
+                        if (selectedProducts.Any(e => e.Code == product.Code))
+                            selectedProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity += quantity).ToList();
+                        else
+                            selectedProducts.Add(new Product { Code = product.Code, Price = product.Price, Quantity = quantity, UnitType = product.UnitType });
+                        totalAmount += totalProductAmount;
+                    }
                 }
             }
             return (product, quantity);
@@ -302,72 +328,72 @@ namespace InvoiceCreator
             var random = new Random();
             if (remainedPrice >= 10000)
             {
-                if (filteredProducts?.Any(e => e.UnitType == UnitType.Kilogram && e.Quantity > 0) == true)
+                decimal calc = remainedPrice / 10000;
+                var firstCheap = cheapProducts.OrderByDescending(e => e.Quantity).Where(e => e.Quantity > 0 && e.Price == 10000).FirstOrDefault();
+                if (selectedProducts.Any(e => e.Code == firstCheap.Code))
                 {
-                    var kilogramProduct = filteredProducts?.Where(e => e.UnitType == UnitType.Kilogram && e.Quantity > 0).OrderBy(e => e.Price).FirstOrDefault();
-                    decimal calc = (remainedPrice / kilogramProduct.Price);
-                    if (selectedProducts.Any(e => e.Code == kilogramProduct.Code))
-                    {
-                        selectedProducts.Where(e => e.Code == kilogramProduct.Code).Select(s => s.Quantity += Math.Floor(calc)).ToList();
-                        masterProducts.Where(e => e.Code == kilogramProduct.Code).Select(s => s.Quantity -= Math.Floor(calc)).ToList();
-                    }
-                    else
-                    {
-                        selectedProducts.Add(new Product { Code = kilogramProduct.Code, Price = kilogramProduct.Price, Quantity = Math.Floor(calc), UnitType = kilogramProduct.UnitType });
-                        masterProducts.Where(e => e.Code == kilogramProduct.Code).Select(s => s.Quantity -= Math.Floor(calc)).ToList();
-                    }
-                    if (calc % 2 > 0)
-                    {
-                        var chunckedPrice = int.Parse((calc % 2).ToString("#.0000").Split('.')[1]);
-                        if (chunckedPrice == 0)
-                            totalAmount = 0;
-                        else
-                        {
-                            var roundedCheatProducts = cheapProducts.Where(e => e.Price == 1000 && e.Quantity > 0).OrderByDescending(e => e.Quantity).ToList();
-                            var chuckedProduct = roundedCheatProducts[random.Next(roundedCheatProducts.Count())];
-                            selectedProducts.Add(new Product { Code = chuckedProduct.Code, Price = 1000, Quantity = chunckedPrice / 1000, UnitType = chuckedProduct.UnitType });
-                            cheapProducts.Where(el => el.Code == chuckedProduct.Code).Select(el => el.Quantity -= chunckedPrice / 1000).ToList();
-                        }
-                    }
+                    selectedProducts.Where(e => e.Code == firstCheap.Code).Select(s => (s.Quantity += Math.Round(calc, 3))).ToList();
+                    //cheapProducts.Where(e => e.Code == firstCheap.Code).Select(s => s.Quantity -= (Convert.ToInt32(Math.Floor(calc)))).ToList();
                 }
                 else
                 {
-                    decimal calc = remainedPrice / 10000;
-                    var firstCheap = cheapProducts.OrderByDescending(e => e.Quantity).Where(e => e.Quantity > 0 && e.Price == 10000).FirstOrDefault();
-                    if (selectedProducts.Any(e => e.Code == firstCheap.Code))
-                    {
-                        selectedProducts.Where(e => e.Code == firstCheap.Code).Select(s => (s.Quantity += (Convert.ToInt32(Math.Floor(calc))))).ToList();
-                        cheapProducts.Where(e => e.Code == firstCheap.Code).Select(s => s.Quantity -= (Convert.ToInt32(Math.Floor(calc)))).ToList();
-                    }
-                    else
-                    {
-                        selectedProducts.Add(new Product { Code = firstCheap.Code, Price = firstCheap.Price, Quantity = Convert.ToInt32(Math.Floor(calc)), UnitType = firstCheap.UnitType });
-                        masterProducts.Where(e => e.Code == firstCheap.Code).Select(s => s.Quantity -= Convert.ToInt32(Math.Floor(calc))).ToList();
-                    }
-                    if (calc % 2 > 0)
-                    {
-                        var chunckedPrice = int.Parse((calc % 2).ToString("#.0000").Split('.')[1]);
-                        if (chunckedPrice == 0)
-                            totalAmount = 0;
-                        else
-                        {
-                            var roundedCheatProducts = cheapProducts.Where(e => e.Price == 1000 && e.Quantity > 0).OrderByDescending(e => e.Quantity).ToList();
-                            var chuckedProduct = roundedCheatProducts[random.Next(roundedCheatProducts.Count())];
-                            selectedProducts.Add(new Product { Code = chuckedProduct.Code, Price = 1000, Quantity = chunckedPrice / 1000, UnitType = chuckedProduct.UnitType });
-                            cheapProducts.Where(el => el.Code == chuckedProduct.Code).Select(el => el.Quantity -= chunckedPrice / 1000).ToList();
-                        }
-                    }
+                    selectedProducts.Add(new Product { Code = firstCheap.Code, Price = firstCheap.Price, Quantity = Math.Round(calc, 3), UnitType = firstCheap.UnitType });
+                    // masterProducts.Where(e => e.Code == firstCheap.Code).Select(s => s.Quantity -= Convert.ToInt32(Math.Floor(calc))).ToList();
                 }
+                //if (calc % 2 > 0)
+                //{
+                //    var chunckedPrice = int.Parse((calc % 2).ToString("#.0000").Split('.')[1]);
+                //    if (chunckedPrice == 0)
+                //        totalAmount = 0;
+                //    else
+                //    {
+                //        var roundedCheatProducts = cheapProducts.Where(e => e.Price == 1000 && e.Quantity > 0).OrderByDescending(e => e.Quantity).ToList();
+                //        var chuckedProduct = roundedCheatProducts[random.Next(roundedCheatProducts.Count())];
+                //        selectedProducts.Add(new Product { Code = chuckedProduct.Code, Price = 1000, Quantity = chunckedPrice / 1000, UnitType = chuckedProduct.UnitType });
+                //        //cheapProducts.Where(el => el.Code == chuckedProduct.Code).Select(el => el.Quantity -= chunckedPrice / 1000).ToList();
+                //    }
+                //}
+                //if (masterProducts?.Any(e => e.UnitType == UnitType.Kilogram && e.Quantity > 0) == true)
+                //{
+                //    var kilogramProduct = masterProducts?.Where(e => e.UnitType == UnitType.Kilogram && e.Quantity > 0).OrderBy(e => e.Price).FirstOrDefault();
+                //    decimal calc = (remainedPrice / kilogramProduct.Price);
+                //    if (selectedProducts.Any(e => e.Code == kilogramProduct.Code))
+                //    {
+                //        selectedProducts.Where(e => e.Code == kilogramProduct.Code).Select(s => s.Quantity += Math.Round(calc,3,MidpointRounding.AwayFromZero)).ToList();
+                //        masterProducts.Where(e => e.Code == kilogramProduct.Code).Select(s => s.Quantity -= Math.Ceiling(calc)).ToList();
+                //    }
+                //    else
+                //    {
+                //        selectedProducts.Add(new Product { Code = kilogramProduct.Code, Price = kilogramProduct.Price, Quantity = Math.Floor(calc), UnitType = kilogramProduct.UnitType });
+                //        masterProducts.Where(e => e.Code == kilogramProduct.Code).Select(s => s.Quantity -= Math.Floor(calc)).ToList();
+                //    }
+                //    if (calc % 2 > 0)
+                //    {
+                //        var chunckedPrice = int.Parse((calc % 2).ToString("#.0000").Split('.')[1]);
+                //        if (chunckedPrice == 0)
+                //            totalAmount = 0;
+                //        else
+                //        {
+                //            var roundedCheatProducts = cheapProducts.Where(e => e.Price == 1000 && e.Quantity > 0).OrderByDescending(e => e.Quantity).ToList();
+                //            var chuckedProduct = roundedCheatProducts[random.Next(roundedCheatProducts.Count())];
+                //            selectedProducts.Add(new Product { Code = chuckedProduct.Code, Price = 1000, Quantity = chunckedPrice / 1000, UnitType = chuckedProduct.UnitType });
+                //            cheapProducts.Where(el => el.Code == chuckedProduct.Code).Select(el => el.Quantity -= chunckedPrice / 1000).ToList();
+                //        }
+                //    }
+                //}
+                //else
+                //{
+
+                //}
             }
             else
             {
                 var roundedCheatProducts = cheapProducts.Where(e => e.Price == 1000 && e.Quantity > 0).OrderByDescending(e => e.Quantity).ToList();
                 var chuckedProduct = roundedCheatProducts[random.Next(roundedCheatProducts.Count())];
                 selectedProducts.Add(new Product { Code = chuckedProduct.Code, Price = 1000, Quantity = remainedPrice / 1000, UnitType = chuckedProduct.UnitType });
-                cheapProducts.Where(el => el.Code == chuckedProduct.Code).Select(el => el.Quantity -= remainedPrice / 1000).ToList();
+                //cheapProducts.Where(el => el.Code == chuckedProduct.Code).Select(el => el.Quantity -= remainedPrice / 1000).ToList();
             }
         }
-
         static bool CheckProductPriceEqualityWithTransaction(decimal transactionPrice, ref List<Product> masterProducts, ref List<Product> filteredProducts, ref List<Product> selectedProducts)
         {
             if (filteredProducts.Any(e => e.Price == transactionPrice))
@@ -386,13 +412,13 @@ namespace InvoiceCreator
             }
             return false;
         }
-
         private List<Product> GeneratePriceForCheatProducts(List<Product> cheatProducts)
         {
             int index = 1;
             cheatProducts.ForEach(el =>
             {
-                el.Price = index % 2 == 0 ? 10000 : 10000;
+                el.Price = index % 2 == 0 ? 10000 : 1000;
+                ++index;
             });
             return cheatProducts;
         }
@@ -589,6 +615,9 @@ namespace InvoiceCreator
             txtDate.Text = "1403/07/10";
             txtInvoiceNumber.Text = "1000";
             radioInvoice.Checked = true;
+            txtProduct.Text = "C:\\Users\\Developer\\Desktop\\New folder\\Products.xlsx";
+            txtTransaction.Text = "C:\\Users\\Developer\\Desktop\\New folder\\Transaction1.xlsx";
+            txtSavePath.Text = "C:\\Users\\Developer\\Desktop\\New folder\\";
             radioAsc.Checked = true;
         }
 
