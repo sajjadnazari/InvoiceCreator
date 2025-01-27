@@ -253,9 +253,17 @@ namespace InvoiceCreator
                             {
                                 int integerPart = (int)totalUnit;
                                 decimal fractionalPart = totalUnit - integerPart;
-                                decimal adjustedFractionalPart = Math.Floor(fractionalPart * (twoDecimalPoint ? 100 : 10)) / (twoDecimalPoint ? 100 : 10);
-                                var calculatedKiloQuantity = decimal.Parse((integerPart + adjustedFractionalPart).ToString("F3"));
-                                quantity = calculatedKiloQuantity;
+                                if (fractionalPart < 0.100M)
+                                {
+                                    fractionalPart = 0;
+                                    quantity = integerPart;
+                                }
+                                else
+                                {
+                                    decimal adjustedFractionalPart = Math.Floor(fractionalPart * (twoDecimalPoint ? 100 : 10)) / (twoDecimalPoint ? 100 : 10);
+                                    var calculatedKiloQuantity = decimal.Parse((integerPart + adjustedFractionalPart).ToString("F3"));
+                                    quantity = calculatedKiloQuantity;
+                                }
                                 selectedProducts.Add(new Product { Code = product.Code, Price = product.Price, Quantity = quantity, UnitType = product.UnitType });
                                 masterProducts.Where(e => e.Code == product.Code).Select(s => s.Quantity -= quantity).ToList();
                                 totalAmount = quantity * product.Price;
@@ -442,7 +450,7 @@ namespace InvoiceCreator
                     worksheet.Cells[row, 9].Value = orderedinvoices[i].UnitType == UnitType.Kilogram ? "کیلوگرم" : orderedinvoices[i].UnitType == UnitType.Num ? "عدد" : "";
                     worksheet.Cells[row, 10].Value = "";
                     worksheet.Cells[row, 11].Value = orderedinvoices[i].Total; //قلم فی
-                    worksheet.Cells[row, 12].Value = orderedinvoices[i].Quantity.ToString(); //قلم فاکتور کل
+                    worksheet.Cells[row, 12].Value = orderedinvoices[i].Quantity.ToString().Contains('.') && orderedinvoices[i].Quantity.ToString().Split('.')[1].All(c => c == '0') ? orderedinvoices[i].Quantity.ToString().Split('.')[0] : orderedinvoices[i].Quantity.ToString(); //قلم فاکتور کل
                     worksheet.Cells[row, 13].Value = 0;
                     worksheet.Cells[row, 14].Value = 0;
                     worksheet.Cells[row, 15].Value = 0;
