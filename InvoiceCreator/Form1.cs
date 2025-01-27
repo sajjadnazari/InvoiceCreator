@@ -572,9 +572,6 @@ namespace InvoiceCreator
             txtDate.Text = "1403/07/10";
             txtInvoiceNumber.Text = "1000";
             radioInvoice.Checked = true;
-            txtProduct.Text = "C:\\Users\\Developer\\Desktop\\ped\\Products.xlsx";
-            txtTransaction.Text = "C:\\Users\\Developer\\Desktop\\ped\\Transaction1.xlsx";
-            txtSavePath.Text = "C:\\Users\\Developer\\Desktop\\ped\\";
             radioAsc.Checked = true;
         }
 
