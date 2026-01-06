@@ -1,6 +1,6 @@
-﻿using OfficeOpenXml;
+﻿using System.Globalization;
+using OfficeOpenXml;
 using OfficeOpenXml.Style;
-using System.Globalization;
 
 namespace InvoiceCreator
 {
@@ -32,12 +32,17 @@ namespace InvoiceCreator
                                 var products = await ReadProductsAsync(productsFilePath);
                                 if (products?.Any() == true)
                                 {
-                                    var totalProduct = products.Sum(e => e.Quantity * e.Price);
-                                    decimal sumTransactions = transactionAmounts.Sum(e => e.Amount);
-                                    if (sumTransactions >= totalProduct)
-                                        MessageBox.Show("جمع کل موجودی کالا از جمع کل مجموع تراکنش بیشتر است");
+                                    if (products.Any(el => el.Price == -1) == false)
+                                        MessageBox.Show("یک کالای فیک با قیمت 1- وارد کنید", "", MessageBoxButtons.OK, MessageBoxIcon.Error);
                                     else
-                                        CreteInvoiceAsync(invoiceFilePath, transactionAmounts.ToList(), products.ToList(), invoiceNumberIndex, txtDate.Text, radioModeB.Checked, twoDecimalPointRadio.Checked);
+                                    {
+                                        var totalProduct = products.Sum(e => e.Quantity * e.Price);
+                                        decimal sumTransactions = transactionAmounts.Sum(e => e.Amount);
+                                        if (sumTransactions >= totalProduct)
+                                            MessageBox.Show("جمع کل موجودی کالا از جمع کل مجموع تراکنش بیشتر است");
+                                        else
+                                            CreteInvoiceAsync(invoiceFilePath, transactionAmounts.ToList(), products.ToList(), invoiceNumberIndex, txtDate.Text, radioModeB.Checked, twoDecimalPointRadio.Checked);
+                                    }
                                 }
                                 else
                                     MessageBox.Show("Product Files Not found", "", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -140,6 +145,7 @@ namespace InvoiceCreator
                 }
             });
             var cheapProducts = products.Any(e => e.Price == 0) ? GeneratePriceForCheatProducts(products.Where(e => e.Price == 0).ToList()) : FakeProducts();
+            VirtualRoundingProduct = products.Where(e => e.Price == -1).ToList();
             decimal minimumPrice = masterProducts.OrderBy(s => s.Price).Select(s => s.Price).FirstOrDefault();
             decimal averagePrice = (int)masterProducts.Average(e => e.Price);
 
@@ -329,36 +335,70 @@ namespace InvoiceCreator
         static void Rounding(decimal transactionPrice, ref List<Product> masterProducts, ref List<Product> filteredProducts, ref List<Product> selectedProducts, ref decimal remainingPrice, ref decimal totalAmount, ref List<Product> cheapProducts, bool chunkMode)
         {
             decimal remainedPrice = transactionPrice - totalAmount;
-
-            var random = new Random();
-            if (remainedPrice >= 10000)
+            while (remainedPrice > 0m)
             {
-                var calc = Convert.ToInt32(remainedPrice / 10000);
-                var firstCheap = cheapProducts.OrderByDescending(e => e.Quantity).Where(e => e.Quantity > 0 && e.Price == 10000).FirstOrDefault();
-                if (selectedProducts.Any(e => e.Code == firstCheap.Code))
+                if (remainedPrice >= 10000m)
                 {
-                    selectedProducts.Where(e => e.Code == firstCheap.Code).Select(s => (s.Quantity = chunkMode ? 1 : (s.Quantity + calc))).ToList();
-                    selectedProducts.Where(e => e.Code == firstCheap.Code).Select(s => (s.Price = chunkMode ? (s.Price + (calc * firstCheap.Price)) : firstCheap.Price)).ToList();
+                    remainedPrice = AddProduct(ref cheapProducts, ref selectedProducts, 10000m, remainedPrice, chunkMode);
+                    continue;
                 }
-                else
+                if (remainedPrice >= 1000m)
                 {
-                    selectedProducts.Add(new Product { Code = firstCheap.Code, Price = chunkMode ? (calc * firstCheap.Price) : firstCheap.Price, Quantity = chunkMode ? 1 : calc, UnitType = firstCheap.UnitType });
+                    remainedPrice = AddProduct(ref cheapProducts, ref selectedProducts, 1000m, remainedPrice, chunkMode);
+                    continue;
                 }
+                if (remainedPrice >= 100m)
+                {
+                    remainedPrice = AddProduct(ref cheapProducts, ref selectedProducts, 100m, remainedPrice, chunkMode);
+                    continue;
+                }
+                break;
             }
-            else if (remainedPrice >= 1000)
+            remainingPrice = remainedPrice;
+
+        }
+
+        private static decimal AddProduct(ref List<Product> cheapProducts, ref List<Product> selectedProducts, decimal price, decimal remainedPrice, bool chunkMode)
+        {
+            Product firstCheap = cheapProducts.Where(e => e.Quantity > 0m && e.Price == price).OrderByDescending(e => e.Quantity).FirstOrDefault();
+            if (firstCheap == null)
             {
-                var calc = Convert.ToInt32(remainedPrice / 1000);
-                var firstCheap = cheapProducts.OrderByDescending(e => e.Quantity).Where(e => e.Quantity > 0 && e.Price == 1000).FirstOrDefault();
-                selectedProducts.Add(new Product { Code = firstCheap.Code, Price = chunkMode ? (calc * firstCheap.Price) : firstCheap.Price, Quantity = chunkMode ? 1 : calc, UnitType = firstCheap.UnitType });
+                var virtualRoundingProduct = VirtualRoundingProduct.FirstOrDefault();
+                selectedProducts.Add(new Product
+                {
+                    Code = virtualRoundingProduct?.Code ?? 10002525,
+                    Price = remainedPrice,
+                    Quantity = 1,
+                    UnitType = virtualRoundingProduct?.UnitType ?? UnitType.Unknow
+                });
+                remainedPrice = 0;
+                return remainedPrice;
+            }
+            int calc = (int)(remainedPrice / price);
+            if (calc <= 0)
+            {
+                return remainedPrice;
+            }
+            Product existing = selectedProducts.FirstOrDefault((Product e) => e.Code == firstCheap.Code);
+            if (existing != null)
+            {
+                existing.Quantity += (decimal)(chunkMode ? 1 : calc);
+                existing.Price += (chunkMode ? firstCheap.Price : firstCheap.Price);
             }
             else
             {
-                var calc = Convert.ToInt32(remainedPrice / 100);
-                var firstCheap = cheapProducts.OrderByDescending(e => e.Quantity).Where(e => e.Quantity > 0 && e.Price == 100).FirstOrDefault();
-                selectedProducts.Add(new Product { Code = firstCheap.Code, Price = chunkMode ? (calc * firstCheap.Price) : firstCheap.Price, Quantity = chunkMode ? 1 : calc, UnitType = firstCheap.UnitType });
+                selectedProducts.Add(new Product
+                {
+                    Code = firstCheap.Code,
+                    Price = (chunkMode ? firstCheap.Price : firstCheap.Price),
+                    Quantity = (chunkMode ? 1 : calc),
+                    UnitType = firstCheap.UnitType
+                });
             }
-
+            remainedPrice -= (decimal)calc * price;
+            return remainedPrice;
         }
+
         static bool CheckProductPriceEqualityWithTransaction(decimal transactionPrice, ref List<Product> masterProducts, ref List<Product> filteredProducts, ref List<Product> selectedProducts)
         {
             if (filteredProducts.Any(e => e.Price == transactionPrice))
@@ -416,7 +456,7 @@ namespace InvoiceCreator
                 Price = 10000,
                 Quantity = 7000,
                 UnitType = UnitType.Num
-            },
+            }
         };
         private void GenerateExcelInvoice(List<Invoice> invoices, string outputPath, string startDate)
         {
@@ -523,6 +563,7 @@ namespace InvoiceCreator
             public decimal Price { get; set; }
             public bool IsPrimary { get; set; }
         }
+        private static List<Product> VirtualRoundingProduct = new List<Product>();
         private struct Invoice
         {
             public int Number { get; set; }
