@@ -184,6 +184,10 @@ namespace InvoiceCreator
         }
         static void PriceProccess(Transaction transaction, int invoiceNumber, decimal minimumProductPrice, decimal averagePrice, ref List<Product> masterProducts, ref List<Product> cheapProducts, List<Invoice> invoices, bool chunkMode, bool twoDecimalPoint)
         {
+            // 2026-02-13
+            // For Find Bug In Price When Not Equality 
+            // transaction.Amount
+
             var selectedProducts = new List<Product>();
             decimal totalAmount = 0;
             decimal regulator = 0;
@@ -197,7 +201,7 @@ namespace InvoiceCreator
                 var filterdProducts = regulator > 0 ? masterProducts.Where(e => e.Price <= regulator).OrderByDescending(e => e.Price).ToList() : masterProducts;
                 filterdProducts = filterdProducts?.Any() == true ? filterdProducts : masterProducts.ToList();
 
-                if (CheckProductPriceEqualityWithTransaction(transaction.Amount, ref filterdProducts, ref selectedProducts, ref selectedProducts)) break;
+                if (CheckProductPriceEqualityWithTransaction(regulator > 0 ? regulator : transaction.Amount, ref masterProducts, ref filterdProducts, ref selectedProducts)) break;
                 var ProductAndQuantity = InitializeSelectProduct(transaction.Amount, ref masterProducts, ref filterdProducts, ref selectedProducts, ref remainingPrice, ref totalAmount, twoDecimalPoint);
                 if (totalAmount == transaction.Amount) break;
 
@@ -227,6 +231,16 @@ namespace InvoiceCreator
                     TransactionIndex = transaction.Index
                 });
             }
+
+            // 2026-02-13
+            // For Find Bug In Price total Not Equal with transaction price
+            // transaction.Amount
+            //var sumX = selectedProducts.Sum(el => el.Quantity * el.Price);
+            //if (sumX != transaction.Amount)
+            //{
+            //    var t1 = 4;
+            //}
+
         }
         static (Product product, decimal quantity) InitializeSelectProduct(decimal transactionPrice, ref List<Product> masterProducts, ref List<Product> filteredProducts, ref List<Product> selectedProducts, ref decimal remainingPrice, ref decimal totalAmount, bool twoDecimalPoint)
         {
@@ -350,6 +364,11 @@ namespace InvoiceCreator
                 if (remainedPrice >= 100m)
                 {
                     remainedPrice = AddProduct(ref cheapProducts, ref selectedProducts, 100m, remainedPrice, chunkMode);
+                    continue;
+                }
+                if (remainedPrice >= 10m)
+                {
+                    remainedPrice = AddProduct(ref cheapProducts, ref selectedProducts, 10M, remainedPrice, chunkMode);
                     continue;
                 }
                 break;
@@ -618,7 +637,10 @@ namespace InvoiceCreator
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            txtDate.Text = "1403/07/10";
+
+            PersianCalendar persianCalendar = new PersianCalendar();
+            var now = DateTime.Now;
+            txtDate.Text = $"{persianCalendar.GetYear(now)}/{persianCalendar.GetMonth(now)}/{persianCalendar.GetDayOfMonth(now)}";
             txtInvoiceNumber.Text = "1000";
             radioInvoice.Checked = true;
             radioAsc.Checked = true;
