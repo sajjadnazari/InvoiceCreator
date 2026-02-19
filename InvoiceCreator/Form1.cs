@@ -58,11 +58,9 @@ namespace InvoiceCreator
                 }
                 else
                     MessageBox.Show("Save output file path is not selected", "", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         private async Task<List<Transaction>> ReadAmountsAsync(string transactionFilepath)
@@ -72,26 +70,41 @@ namespace InvoiceCreator
                 int index = 1;
                 using (var package = new ExcelPackage(new FileInfo(transactionFilepath)))
                 {
+                    string errorMessages = string.Empty;
                     List<Transaction> records = new List<Transaction>();
                     ExcelWorksheet worksheet = package.Workbook.Worksheets[0];
                     int rowCount = worksheet.Dimension.Rows;
                     List<Task> tasks = new List<Task>();
+                    var cts = new CancellationTokenSource();
+                    var token = cts.Token;
                     for (int row = 2; row <= rowCount; row++)
                     {
                         var currentRow = row;
                         tasks.Add(Task.Run(() =>
                         {
-                            var price = int.Parse(worksheet.Cells[currentRow, 1].Text);
-                            var description = worksheet.Cells[currentRow, 2].Text;
-                            lock (records) { records.Add(new Transaction { Amount = price, Description = description }); }
-                        }));
+                            try
+                            {
+                                token.ThrowIfCancellationRequested();
+                                var price = long.Parse(worksheet.Cells[currentRow, 1].Text);
+                                var description = worksheet.Cells[currentRow, 2].Text;
+                                lock (records) { records.Add(new Transaction { Amount = price, Description = description }); }
+                            }
+                            catch (Exception ex)
+                            {
+                                cts.Cancel();
+                                errorMessages += ($" خطا در خواندن اطلاعات فایل تراکنش ها در ردیف {row} جزئیات خطا :" + ex.Message);
+                            }
+                        }, token));
                     }
+                    if (!string.IsNullOrEmpty(errorMessages))
+                        MessageBox.Show(errorMessages, "", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     await Task.WhenAll(tasks);
                     var transaction = records.OrderByDescending(e => e.Amount).OrderBy(e => e.Description).ToList();
                     transaction.ForEach(e => { e.Index = index++; });
                     return transaction;
                 }
-            };
+            }
+            ;
 
             return new List<Transaction>();
         }
@@ -101,34 +114,49 @@ namespace InvoiceCreator
             {
                 using (var package = new ExcelPackage(new FileInfo(productFilePath)))
                 {
+                    string errorMessages = string.Empty;
                     List<Product> records = new List<Product>();
                     ExcelWorksheet worksheet = package.Workbook.Worksheets[0];
                     int rowCount = worksheet.Dimension.Rows;
                     List<Task> tasks = new List<Task>();
+                    var cts = new CancellationTokenSource();
+                    var token = cts.Token;
                     for (int row = 2; row <= rowCount; row++)
                     {
                         var currentRow = row;
                         tasks.Add(Task.Run(() =>
                         {
-                            var code = int.Parse(worksheet.Cells[currentRow, 1].Text);
-                            var count = decimal.Parse(worksheet.Cells[currentRow, 3].Text, CultureInfo.InvariantCulture.NumberFormat);
-                            var unit = worksheet.Cells[currentRow, 4].Text.Trim() == "كيلوگرم" ? UnitType.Kilogram
-                                : worksheet.Cells[currentRow, 4].Text.Trim() == "عدد" ? UnitType.Num : UnitType.Unknow;
-                            var price = !string.IsNullOrWhiteSpace(worksheet?.Cells[currentRow, 5].Text) ? int.Parse(worksheet?.Cells[currentRow, 5].Text?.Replace(",", "")?.ToString() ?? "0") : 0;
-                            var product = new Product
+                            try
                             {
-                                Code = code,
-                                Quantity = Convert.ToInt32(count),
-                                Price = price,
-                                UnitType = unit
-                            };
-                            lock (records) { records.Add(product); }
-                        }));
+                                token.ThrowIfCancellationRequested();
+                                var code = int.Parse(worksheet.Cells[currentRow, 1].Text);
+                                var count = decimal.Parse(worksheet.Cells[currentRow, 3].Text, CultureInfo.InvariantCulture.NumberFormat);
+                                var unit = worksheet.Cells[currentRow, 4].Text.Trim() == "كيلوگرم" ? UnitType.Kilogram
+                                : worksheet.Cells[currentRow, 4].Text.Trim() == "عدد" ? UnitType.Num : UnitType.Unknow;
+                                var price = !string.IsNullOrWhiteSpace(worksheet?.Cells[currentRow, 5].Text) ? int.Parse(worksheet?.Cells[currentRow, 5].Text?.Replace(",", "")?.ToString() ?? "0") : 0;
+                                var product = new Product
+                                {
+                                    Code = code,
+                                    Quantity = Convert.ToInt32(count),
+                                    Price = price,
+                                    UnitType = unit
+                                };
+                                lock (records) { records.Add(product); }
+                            }
+                            catch (Exception ex)
+                            {
+                                cts.Cancel();
+                                errorMessages += ($" خطا در خواندن اطلاعات فایل موجودی وقیمت کالا ها در ردیف {row} جزئیات خطا :" + ex.Message + " ");
+                            }
+                        }, token));
                     }
+                    if (!string.IsNullOrEmpty(errorMessages))
+                        MessageBox.Show(errorMessages, "", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     await Task.WhenAll(tasks);
                     return records.OrderByDescending(e => e.Quantity).ToList();
                 }
-            };
+            }
+            ;
             return new List<Product>();
         }
         private void CreteInvoiceAsync(string outputPath, List<Transaction> transactions, List<Product> products, int invoiceNumberIndex, string dateStart, bool chunkMode, bool twoDecimalPoint)
