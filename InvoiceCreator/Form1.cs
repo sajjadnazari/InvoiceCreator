@@ -524,26 +524,28 @@ namespace InvoiceCreator
                     : invoices.OrderByDescending(e => radioInvoice.Checked ? e.Number : e.PrimaryPrice)
                     .ThenByDescending(e => e.Total).ToList();
 
+                var settings = ConfigManager.Load();
+
                 for (int i = 0; i < orderedinvoices.Count(); i++)
                 {
                     worksheet.Cells[row, 1].Value = "InvoiceItem";
                     worksheet.Cells[row, 2].Value = orderedinvoices[i].Number;
                     worksheet.Cells[row, 3].Value = startDate;
-                    worksheet.Cells[row, 4].Value = $"101496";
-                    worksheet.Cells[row, 5].Value = $"8";
+                    worksheet.Cells[row, 4].Value = settings?.CustomerCode ?? $"101496";
+                    worksheet.Cells[row, 5].Value = settings?.SellCodeType ?? $"8";
                     worksheet.Cells[row, 6].Value = orderedinvoices[i].ProductCode;
-                    worksheet.Cells[row, 7].Value = $"1";
+                    worksheet.Cells[row, 7].Value = settings?.StorehouseCode ?? $"1";
                     worksheet.Cells[row, 8].Value = $"";
-                    worksheet.Cells[row, 9].Value = orderedinvoices[i].UnitType == UnitType.Kilogram ? "کیلوگرم" : orderedinvoices[i].UnitType == UnitType.Num ? "عدد" : "";
+                    worksheet.Cells[row, 9].Value = orderedinvoices[i].Quantity.ToString().Contains('.') && orderedinvoices[i].Quantity.ToString().Split('.')[1].All(c => c == '0') ? orderedinvoices[i].Quantity.ToString().Split('.')[0] : orderedinvoices[i].Quantity.ToString();//orderedinvoices[i].UnitType == UnitType.Kilogram ? "کیلوگرم" : orderedinvoices[i].UnitType == UnitType.Num ? "عدد" : "";
                     worksheet.Cells[row, 10].Value = "";
                     worksheet.Cells[row, 11].Value = orderedinvoices[i].Total; //قلم فی
-                    worksheet.Cells[row, 12].Value = orderedinvoices[i].Quantity.ToString().Contains('.') && orderedinvoices[i].Quantity.ToString().Split('.')[1].All(c => c == '0') ? orderedinvoices[i].Quantity.ToString().Split('.')[0] : orderedinvoices[i].Quantity.ToString(); //قلم فاکتور کل
+                    worksheet.Cells[row, 12].Value = (orderedinvoices[i].Quantity * orderedinvoices[i].Total); //قلم فاکتور کل
                     worksheet.Cells[row, 13].Value = 0;
                     worksheet.Cells[row, 14].Value = 0;
                     worksheet.Cells[row, 15].Value = 0;
                     worksheet.Cells[row, 16].Value = 0;
                     worksheet.Cells[row, 17].Value = orderedinvoices[i].TransactionDescription;
-                    worksheet.Cells[row, 18].Value = $"مشتري متفرقه-مصرف كننده نهايي";
+                    worksheet.Cells[row, 18].Value = settings?.CustomerName ?? $"مشتري متفرقه-مصرف كننده نهايي";
                     worksheet.Cells[row, 19].Value = $"آدرس مشتري";
                     worksheet.Cells[row, 20].Value = 0;
                     worksheet.Cells[row, 21].Value = 0;

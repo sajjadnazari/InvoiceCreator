@@ -9,6 +9,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="settings.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="EPPlus" Version="7.4.2" />
   </ItemGroup>
 
