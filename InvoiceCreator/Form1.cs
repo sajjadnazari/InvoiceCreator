@@ -532,11 +532,11 @@ namespace InvoiceCreator
                     worksheet.Cells[row, 2].Value = orderedinvoices[i].Number;
                     worksheet.Cells[row, 3].Value = startDate;
                     worksheet.Cells[row, 4].Value = settings?.CustomerCode ?? $"101496";
-                    worksheet.Cells[row, 5].Value = settings?.SellCodeType ?? $"8";
+                    worksheet.Cells[row, 5].Value = int.Parse( settings?.SellCodeType ?? $"8");
                     worksheet.Cells[row, 6].Value = orderedinvoices[i].ProductCode;
-                    worksheet.Cells[row, 7].Value = settings?.StorehouseCode ?? $"1";
+                    worksheet.Cells[row, 7].Value = int.Parse( settings?.StorehouseCode ?? $"1");
                     worksheet.Cells[row, 8].Value = $"";
-                    worksheet.Cells[row, 9].Value = orderedinvoices[i].Quantity.ToString().Contains('.') && orderedinvoices[i].Quantity.ToString().Split('.')[1].All(c => c == '0') ? orderedinvoices[i].Quantity.ToString().Split('.')[0] : orderedinvoices[i].Quantity.ToString();//orderedinvoices[i].UnitType == UnitType.Kilogram ? "کیلوگرم" : orderedinvoices[i].UnitType == UnitType.Num ? "عدد" : "";
+                    worksheet.Cells[row, 9].Value = decimal.Parse( orderedinvoices[i].Quantity.ToString().Contains('.') && orderedinvoices[i].Quantity.ToString().Split('.')[1].All(c => c == '0') ? orderedinvoices[i].Quantity.ToString().Split('.')[0] : orderedinvoices[i].Quantity.ToString());//orderedinvoices[i].UnitType == UnitType.Kilogram ? "کیلوگرم" : orderedinvoices[i].UnitType == UnitType.Num ? "عدد" : "";
                     worksheet.Cells[row, 10].Value = "";
                     worksheet.Cells[row, 11].Value = orderedinvoices[i].Total; //قلم فی
                     worksheet.Cells[row, 12].Value = (orderedinvoices[i].Quantity * orderedinvoices[i].Total); //قلم فاکتور کل
@@ -572,15 +572,24 @@ namespace InvoiceCreator
 
             worksheet.Column(4).Width = 14;
             worksheet.Column(5).Width = 15;
+            worksheet.Column(5).Style.Numberformat.Format = "0";
+            worksheet.Column(5).Style.Numberformat.Format = "General";
+
             worksheet.Column(6).Width = 13;
             worksheet.Column(6).Style.Fill.PatternType = ExcelFillStyle.Solid;
             worksheet.Column(6).Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.Yellow);
 
             worksheet.Column(7).Width = 15;
+            worksheet.Column(7).Style.Numberformat.Format = "0";
+            worksheet.Column(7).Style.Numberformat.Format = "General";
+
             worksheet.Column(8).Width = 18;
             worksheet.Column(9).Width = 17;
             worksheet.Column(9).Style.Fill.PatternType = ExcelFillStyle.Solid;
             worksheet.Column(9).Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.Yellow);
+            worksheet.Column(9).Style.Numberformat.Format = "0.00";
+            worksheet.Column(9).Style.Numberformat.Format = "General";
+
 
             worksheet.Column(10).Width = 19;
             worksheet.Column(11).Width = 15;
